@@ -34,5 +34,11 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'lafricamobile' => [
+        'api_key'     => env('LAFRICAMOBILE_API_KEY'),
+        'api_secret'  => env('LAFRICAMOBILE_API_SECRET'),
+        'sender_name' => env('LAFRICAMOBILE_SENDER_NAME', 'BioSen100'),
+        'api_url'     => env('LAFRICAMOBILE_API_URL', 'https://lamsms.lafricamobile.com/api'),
+    ],
 
 ];
