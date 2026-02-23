@@ -1,14 +1,14 @@
 <?php
-
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'nom', 'prenom', 'telephone', 'adresse', 'email',
@@ -26,14 +26,26 @@ class User extends Authenticatable
         ];
     }
 
-    public function role()      { return $this->belongsTo(Role::class); }
-    public function boutique()  { return $this->belongsTo(Boutique::class); }
-    public function paniers()   { return $this->hasMany(Panier::class); }
-    public function commandes() { return $this->hasMany(Commande::class); }
-    public function paiements() { return $this->hasMany(Paiement::class); }
-    public function livraisons(){ return $this->hasMany(Livraison::class); }
+    // ← Méthodes obligatoires JWT
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims(): array
+    {
+        return [];
+    }
+
+    // Relations
+    public function role()       { return $this->belongsTo(Role::class); }
+    public function boutique()   { return $this->belongsTo(Boutique::class); }
+    public function paniers()    { return $this->hasMany(Panier::class); }
+    public function commandes()  { return $this->hasMany(Commande::class); }
+    public function paiements()  { return $this->hasMany(Paiement::class); }
+    public function livraisons() { return $this->hasMany(Livraison::class); }
     public function notifications() { return $this->hasMany(Notification::class); }
-    public function avis()      { return $this->hasMany(Avis::class); }
+    public function avis()       { return $this->hasMany(Avis::class); }
 
     public function hasRole(string $role): bool { return $this->role?->name === $role; }
     public function isAdmin(): bool { return in_array($this->role?->name, ['Admin', 'Super Admin']); }
