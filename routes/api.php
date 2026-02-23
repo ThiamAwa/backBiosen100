@@ -21,7 +21,8 @@ use App\Http\Controllers\TemoignageController;
 use App\Http\Controllers\SmsController;
 
 // ─── Auth ─────────────────────────────────────────────────────
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login',   [AuthController::class, 'login']);
+Route::post('/refresh', [AuthController::class, 'refresh']);
 
 // ─── Routes publiques ─────────────────────────────────────────
 Route::get('/accueil',                [AccueilController::class, 'index']);
@@ -40,29 +41,29 @@ Route::apiResource('produits-sport', ProduitSportController::class)->only(['inde
 Route::get('/produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
 Route::apiResource('boutiques', BoutiqueController::class)->only(['index', 'show']);
 
-// ─── Checkout public (guests + connectés) ────────────────────
-Route::post('/checkout',                            [CheckoutController::class, 'process']);
-Route::get('/checkout/confirmation/{orderNumber}',  [CheckoutController::class, 'confirmation']);
-Route::get('/checkout/status/{orderNumber}',        [CheckoutController::class, 'checkOrderStatus']);
-Route::get('/checkout/whatsapp/{orderNumber}',      [CheckoutController::class, 'getWhatsAppMessage']);
+// ─── Checkout public (guests + connectés) ─────────────────────
+Route::post('/checkout',                           [CheckoutController::class, 'process']);
+Route::get('/checkout/confirmation/{orderNumber}', [CheckoutController::class, 'confirmation']);
+Route::get('/checkout/status/{orderNumber}',       [CheckoutController::class, 'checkOrderStatus']);
+Route::get('/checkout/whatsapp/{orderNumber}',     [CheckoutController::class, 'getWhatsAppMessage']);
 
-// ─── Authentifié ──────────────────────────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
+// ─── Authentifié avec JWT ─────────────────────────────────────
+Route::middleware('auth:api')->group(function () {
 
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
 
-    // PDF (protégé car téléchargement sensible)
+    // PDF
     Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generatePDF']);
 
-    // Panier — routes fixes AVANT les routes avec {id}
-    Route::get('/panier/count',  [PanierController::class, 'count']);
-    Route::post('/panier/vider', [PanierController::class, 'viderPanier']);
-    Route::get('/panier',        [PanierController::class, 'index']);
-    Route::post('/panier',       [PanierController::class, 'store']);
-    Route::put('/panier/{id}',   [PanierController::class, 'update']);
-    Route::delete('/panier/{id}',[PanierController::class, 'destroy']);
+    // Panier — fixes AVANT {id}
+    Route::get('/panier/count',   [PanierController::class, 'count']);
+    Route::post('/panier/vider',  [PanierController::class, 'viderPanier']);
+    Route::get('/panier',         [PanierController::class, 'index']);
+    Route::post('/panier',        [PanierController::class, 'store']);
+    Route::put('/panier/{id}',    [PanierController::class, 'update']);
+    Route::delete('/panier/{id}', [PanierController::class, 'destroy']);
 
     // SMS
     Route::post('/sms/send',   [SmsController::class, 'sendSms']);
@@ -80,17 +81,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('produits',       ProduitController::class)->except(['index', 'show']);
         Route::apiResource('produits-sport', ProduitSportController::class)->except(['index', 'show']);
 
-        // Commandes — routes fixes AVANT apiResource
+        // Commandes — fixes AVANT apiResource
         Route::get('/commandes/export/csv', [CommandeController::class, 'export']);
         Route::get('/commandes/statistics', [CommandeController::class, 'statistics']);
         Route::apiResource('commandes', CommandeController::class)->except(['store', 'create', 'edit']);
 
-        // Clients
+        // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
         Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
         Route::apiResource('clients', ClientController::class)->except(['create', 'edit']);
 
-        // Personnel
+        // Personnel — fix AVANT apiResource
         Route::patch('/vendeurs/{id}/change-role', [VendeurController::class, 'changeRole']);
         Route::apiResource('livreurs',  LivreurController::class)->except(['show', 'create', 'edit']);
         Route::apiResource('vendeurs',  VendeurController::class)->except(['show', 'create', 'edit']);
