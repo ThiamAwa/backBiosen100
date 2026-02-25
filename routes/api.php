@@ -53,10 +53,8 @@ Route::middleware('auth:api')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
-
     // PDF
     Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generatePDF']);
-
     // Panier — fixes AVANT {id}
     Route::get('/panier/count',   [PanierController::class, 'count']);
     Route::post('/panier/vider',  [PanierController::class, 'viderPanier']);
