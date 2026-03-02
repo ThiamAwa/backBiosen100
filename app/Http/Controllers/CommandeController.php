@@ -9,25 +9,33 @@ use Illuminate\Http\Request;
 class CommandeController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = Commande::with(['user', 'livraison', 'paiement']);
+{
+    $query = Commande::with(['user', 'livraison', 'paiement', 'boutique']); 
 
-        if ($request->filled('statut')) {
-            $query->where('statut', $request->statut);
-        }
-
-        if ($request->filled('search')) {
-            $s = $request->search;
-            $query->where(function ($q) use ($s) {
-                $q->where('numeroCommande', 'like', "%{$s}%")
-                    ->orWhere('nom_client', 'like', "%{$s}%")
-                    ->orWhere('email', 'like', "%{$s}%")
-                    ->orWhereHas('user', fn($sq) => $sq->where('nom', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"));
-            });
-        }
-
-        return response()->json($query->orderBy('created_at', 'desc')->paginate(10));
+    // Filtre par statut
+    if ($request->filled('statut')) {
+        $query->where('statut', $request->statut);
     }
+
+    // Filtre par boutique (optionnel)
+    if ($request->filled('boutique_id')) {
+        $query->where('boutique_id', $request->boutique_id);
+    }
+
+    // Recherche
+    if ($request->filled('search')) {
+        $s = $request->search;
+        $query->where(function ($q) use ($s) {
+            $q->where('numeroCommande', 'like', "%{$s}%")
+                ->orWhere('nom_client', 'like', "%{$s}%")
+                ->orWhere('email', 'like', "%{$s}%")
+                ->orWhereHas('user', fn($sq) => $sq->where('nom', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
+                ->orWhereHas('boutique', fn($sq) => $sq->where('nom', 'like', "%{$s}%")); // ← recherche par nom de boutique
+        });
+    }
+
+    return response()->json($query->orderBy('created_at', 'desc')->paginate(10));
+}
 
     public function show(Commande $commande)
     {

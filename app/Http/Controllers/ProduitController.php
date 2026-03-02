@@ -13,9 +13,15 @@ use Illuminate\Support\Facades\Log;
 class ProduitController extends Controller
 {
     private function getTypeBio()
-    {
-        return TypeCategorie::where('nom', 'Bio')->firstOrFail();
+{
+    $typeBio = TypeCategorie::where('nom', 'Bio')->first();
+    if (!$typeBio) {
+        
+        $typeBio = TypeCategorie::create(['nom' => 'Bio']);
+       
     }
+    return $typeBio;
+}
 
     public function index()
     {

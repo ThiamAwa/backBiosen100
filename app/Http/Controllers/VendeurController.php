@@ -36,19 +36,27 @@ class VendeurController extends Controller
             'email'      => 'required|email|unique:users,email',
             'telephone'  => 'required|string|max:20',
             'adresse'    => 'required|string|max:255',
-            'password'   => 'required|string|min:8',
+            'password'   => 'nullable|string|min:8',
             'role_id'    => 'required|exists:roles,id',
             'boutique_id'=> 'nullable|exists:boutiques,id',
         ]);
-
+    
         $role = $this->getRolesCommerciaux()->find($validated['role_id']);
-        if (!$role) return response()->json(['message' => 'Rôle commercial invalide.'], 422);
-
+        if (!$role) {
+            return response()->json(['message' => 'Rôle commercial invalide.'], 422);
+        }
+    
+        
+        if (empty($validated['password'])) {
+            $validated['password'] = 'passer123';
+        }
+    
         $vendeur = User::create([
             ...$validated,
             'password'            => Hash::make($validated['password']),
-            'password_change_required' => true,
+            'password_change_required' => true, 
         ]);
+    
         return response()->json($vendeur->load(['role', 'boutique']), 201);
     }
 
@@ -61,7 +69,7 @@ class VendeurController extends Controller
             'email'      => 'required|email|unique:users,email,' . $id,
             'telephone'  => 'required|string|max:20',
             'adresse'    => 'required|string|max:255',
-            'password'   => 'nullable|string|min:8',
+          
             'role_id'    => 'required|exists:roles,id',
             'boutique_id'=> 'nullable|exists:boutiques,id',
         ]);
@@ -69,8 +77,7 @@ class VendeurController extends Controller
         $role = $this->getRolesCommerciaux()->find($validated['role_id']);
         if (!$role) return response()->json(['message' => 'Rôle commercial invalide.'], 422);
 
-        $data = collect($validated)->except('password')->toArray();
-        if (!empty($validated['password'])) $data['password'] = Hash::make($validated['password']);
+      
 
         $vendeur->update($data);
         return response()->json($vendeur->load(['role', 'boutique']));

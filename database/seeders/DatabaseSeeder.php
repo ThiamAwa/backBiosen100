@@ -2,40 +2,28 @@
 
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     public function run(): void
     {
-        $roles = [
-            'Super Admin',
-            'Admin',
-            'Client',
-            'Vendeur',
-            'Commercial',
-            'Responsable Commercial',
-            'Livreur',
-        ];
+        // Désactiver les contraintes FK pour PostgreSQL
+        DB::statement('SET session_replication_role = replica;');
 
-        foreach ($roles as $role) {
-            Role::firstOrCreate(['name' => $role]);
-        }
+        $this->call([
+            RolesTableSeeder::class,
+            AdminUserSeeder::class,
+            CommandesTableSeeder::class,
+            FactureSeeder::class,
+        ]);
 
-        // Créer un Super Admin par défaut
-        \App\Models\User::firstOrCreate(
-            ['email' => 'admin@biosen.sn'],
-            [
-                'nom'      => 'Admin',
-                'prenom'   => 'Super',
-                'telephone'=> '000000000',
-                'adresse'  => 'Dakar',
-                'password' => \Illuminate\Support\Facades\Hash::make('passer'),
-                'role_id'  => Role::where('name', 'Super Admin')->first()->id,
-            ]
-        );
+        // Réactiver les contraintes FK
+        DB::statement('SET session_replication_role = DEFAULT;');
     }
 }
