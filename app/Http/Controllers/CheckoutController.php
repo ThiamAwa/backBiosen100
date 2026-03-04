@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class CheckoutController extends Controller
 {
@@ -204,7 +205,7 @@ class CheckoutController extends Controller
             // ── Token si nouveau compte ──────────────────────────
             $token = null;
             if ($createAccount && !Auth::check()) {
-                $token = $user->createToken('api-token')->plainTextToken;
+                $token = auth('api')->login($user);
             }
 
             DB::commit();
