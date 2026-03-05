@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PaydunyaController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AccueilController;
@@ -32,13 +33,13 @@ Route::get('/accueil/gamme/{id}',     [AccueilController::class, 'filterByGamme'
 Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
 
-Route::apiResource('typecategories', TypeCategorieController::class)->only(['index', 'show']);
-Route::apiResource('categories',     CategorieController::class)->only(['index', 'show']);
-Route::apiResource('gammes',         GammeController::class)->only(['index', 'show']);
-Route::apiResource('produits',       ProduitController::class)->only(['index', 'show']);
-Route::apiResource('produits-sport', ProduitSportController::class)->only(['index', 'show']);
+Route::apiResource('typecategories', TypeCategorieController::class);
+Route::apiResource('categories',     CategorieController::class);
+Route::apiResource('gammes',         GammeController::class);
+Route::apiResource('produits',       ProduitController::class);
+Route::apiResource('produits-sport', ProduitSportController::class);
 Route::get('/produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
-Route::apiResource('boutiques', BoutiqueController::class)->only(['index', 'show']);
+Route::apiResource('boutiques', BoutiqueController::class);
 
 // ─── Checkout public (guests + connectés) ─────────────────────
 Route::post('/checkout',                           [CheckoutController::class, 'process']);
@@ -48,7 +49,7 @@ Route::get('/checkout/whatsapp/{orderNumber}',     [CheckoutController::class, '
 // PDF
 Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generatePDF']);
 // ─── Authentifié avec JWT ─────────────────────────────────────
-Route::middleware('auth:api')->group(function () {
+//Route::middleware('auth:api')->group(function () {
 
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -71,11 +72,11 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
 
         // Catalogue
-        Route::apiResource('typecategories', TypeCategorieController::class)->except(['index', 'show']);
-        Route::apiResource('categories',     CategorieController::class)->except(['index', 'show']);
-        Route::apiResource('gammes',         GammeController::class)->except(['index', 'show']);
-        Route::apiResource('produits',       ProduitController::class)->except(['index', 'show']);
-        Route::apiResource('produits-sport', ProduitSportController::class)->except(['index', 'show']);
+        Route::apiResource('typecategories', TypeCategorieController::class);
+        Route::apiResource('categories',     CategorieController::class);
+        Route::apiResource('gammes',         GammeController::class);
+        Route::apiResource('produits',       ProduitController::class);
+        Route::apiResource('produits-sport', ProduitSportController::class);
 
         // Commandes — fixes AVANT apiResource
         Route::get('/commandes/export/csv', [CommandeController::class, 'export']);
@@ -95,5 +96,15 @@ Route::middleware('auth:api')->group(function () {
 
         // Témoignages
         Route::apiResource('temoignages', TemoignageController::class)->except(['show', 'create', 'edit']);
+//    });
+//////////////////////////  TEST AVEC PAYDUNYA ///////////////////////////////////////////////////////////////////////////////////
+    Route::get('/test-paydunya-config', function() {
+        return [
+            'mode' => config('paydunya.mode'),
+            'public_key' => substr(config('paydunya.test.public_key'), 0, 10) . '...',
+            'private_key' => substr(config('paydunya.test.private_key'), 0, 10) . '...',
+            'store_name' => config('paydunya.store.name'),
+        ];
     });
+    Route::post('/paydunya/init/{commandeId}', [PaydunyaController::class, 'initPayment']);
 });
