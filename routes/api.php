@@ -19,6 +19,8 @@ use App\Http\Controllers\LivreurController;
 use App\Http\Controllers\VendeurController;
 use App\Http\Controllers\TemoignageController;
 use App\Http\Controllers\SmsController;
+use App\Http\Controllers\FactureController;
+
 // ─── Auth ─────────────────────────────────────────────────────
 Route::post('/login',   [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
@@ -32,7 +34,7 @@ Route::get('/accueil/gamme/{id}',     [AccueilController::class, 'filterByGamme'
 Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
 
-Route::apiResource('typecategories', TypeCategorieController::class)->only(['index', 'show']);
+
 Route::apiResource('categories',     CategorieController::class)->only(['index', 'show']);
 Route::apiResource('gammes',         GammeController::class)->only(['index', 'show']);
 Route::apiResource('produits',       ProduitController::class)->only(['index', 'show']);
@@ -48,7 +50,7 @@ Route::get('/checkout/whatsapp/{orderNumber}',     [CheckoutController::class, '
 // PDF
 Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generatePDF']);
 // ─── Authentifié avec JWT ─────────────────────────────────────
-Route::middleware('auth:api')->group(function () {
+// Route::middleware('auth:api')->group(function () {
 
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -71,11 +73,13 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
 
         // Catalogue
-        Route::apiResource('typecategories', TypeCategorieController::class)->except(['index', 'show']);
-        Route::apiResource('categories',     CategorieController::class)->except(['index', 'show']);
-        Route::apiResource('gammes',         GammeController::class)->except(['index', 'show']);
-        Route::apiResource('produits',       ProduitController::class)->except(['index', 'show']);
-        Route::apiResource('produits-sport', ProduitSportController::class)->except(['index', 'show']);
+        Route::apiResource('typecategories', TypeCategorieController::class);
+        Route::apiResource('categories',     CategorieController::class);
+        Route::apiResource('gammes',         GammeController::class);
+        Route::apiResource('produits',       ProduitController::class);
+        Route::apiResource('produits-sport', ProduitSportController::class);
+        Route::apiResource('factures', FactureController::class);
+        // Route::get('factures/{facture}/download', [FactureController::class, 'download'])->name('factures.download');
 
         // Commandes — fixes AVANT apiResource
         Route::get('/commandes/export/csv', [CommandeController::class, 'export']);
@@ -84,16 +88,17 @@ Route::middleware('auth:api')->group(function () {
 
         // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
-        Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
-        Route::apiResource('clients', ClientController::class)->except(['create', 'edit']);
+Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
+Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
+Route::apiResource('clients', ClientController::class);
 
         // Personnel — fix AVANT apiResource
         Route::patch('/vendeurs/{id}/change-role', [VendeurController::class, 'changeRole']);
-        Route::apiResource('livreurs',  LivreurController::class)->except(['show', 'create', 'edit']);
-        Route::apiResource('vendeurs',  VendeurController::class)->except(['show', 'create', 'edit']);
-        Route::apiResource('boutiques', BoutiqueController::class)->except(['show', 'create', 'edit']);
+        Route::apiResource('livreurs',  LivreurController::class);
+        Route::apiResource('vendeurs',  VendeurController::class);
+        Route::apiResource('boutiques', BoutiqueController::class);
 
         // Témoignages
-        Route::apiResource('temoignages', TemoignageController::class)->except(['show', 'create', 'edit']);
+        Route::apiResource('temoignages', TemoignageController::class);
     });
-});
+// });
