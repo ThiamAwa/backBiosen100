@@ -26,7 +26,7 @@ class BoutiqueController extends Controller
         $validated = $request->validate([
             'nom'         => 'required|string|max:255',
             'adresse'     => 'required|string|max:255',
-            'localisation'=> 'required|string|max:255',
+            
         ]);
         return response()->json(Boutique::create($validated), 201);
     }
@@ -37,7 +37,7 @@ class BoutiqueController extends Controller
         $validated = $request->validate([
             'nom'         => 'required|string|max:255',
             'adresse'     => 'required|string|max:255',
-            'localisation'=> 'required|string|max:255',
+            
         ]);
         $boutique->update($validated);
         return response()->json($boutique);

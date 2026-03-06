@@ -19,13 +19,12 @@ class Facture extends Model
         'statut_paiement',
         'metadonnees',
     ];
-
+    
     protected $casts = [
         'date_emission' => 'datetime',
         'date_echeance' => 'datetime',
-        'metadonnees'   => 'array',
+        'metadonnees'   => 'array', 
     ];
-
     /**
      * Relation : une facture appartient à une commande.
      */

@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('boutiques', function (Blueprint $table) {
-            $table->id();
-            $table->string('nom')->nullable();
-            $table->string('adresse')->nullable();
-            $table->string('localisation')->nullable();
-            $table->timestamps();
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('statut', ['actif', 'suspendu'])->default('actif')->after('adresse');
         });
     }
 
@@ -24,7 +20,9 @@ return new class extends Migration
      * Reverse the migrations.
      */
     public function down(): void
-    {
-        Schema::dropIfExists('boutiques');
-    }
+{
+    Schema::table('users', function (Blueprint $table) {
+        $table->dropColumn('statut');
+    });
+}
 };

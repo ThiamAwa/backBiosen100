@@ -76,7 +76,7 @@ class FactureController extends Controller
 
         // Calcul des montants (adaptez selon votre logique)
         $montantTotal = $commande->montantTotal;
-        $tva = round($montantTotal * 0.18, 2); // exemple TVA 18%
+        $tva = round($montantTotal * 0.18, 2); 
         $montantHT = $montantTotal - $tva;
 
         // Générer un numéro unique
@@ -132,14 +132,14 @@ class FactureController extends Controller
     /**
      * Télécharge le PDF de la facture.
      */
-    public function download(Facture $facture)
-    {
-        if (!$facture->chemin_pdf || !Storage::disk('public')->exists($facture->chemin_pdf)) {
-            return response()->json(['message' => 'Fichier PDF introuvable.'], 404);
-        }
+    // public function download(Facture $facture)
+    // {
+    //     if (!$facture->chemin_pdf || !Storage::disk('public')->exists($facture->chemin_pdf)) {
+    //         return response()->json(['message' => 'Fichier PDF introuvable.'], 404);
+    //     }
 
-        return Storage::disk('public')->download($facture->chemin_pdf, "facture_{$facture->numero_facture}.pdf");
-    }
+    //     return Storage::disk('public')->download($facture->chemin_pdf, "facture_{$facture->numero_facture}.pdf");
+    // }
 
     /**
      * Supprime une facture.
@@ -164,7 +164,7 @@ class FactureController extends Controller
      */
     private function generateInvoiceNumber(): string
     {
-        $prefix = 'F' . date('Y') . date('m'); // ex: F202502
+        $prefix = 'F' . date('Y') . date('m'); 
         $lastFacture = Facture::where('numero_facture', 'like', $prefix . '%')
                                ->orderBy('numero_facture', 'desc')
                                ->first();
@@ -179,24 +179,5 @@ class FactureController extends Controller
         return $prefix . '-' . $newNumber;
     }
 
-    /**
-     * Génère le PDF de la facture et retourne le chemin sauvegardé.
-     */
-    private function generatePdf(Facture $facture): string
-    {
-        // Charger les données nécessaires
-        $facture->load('commande.user', 'commande.panier.lignesPanier.gamme');
-
-        // Générer le PDF à partir d'une vue
-        $pdf = Pdf::loadView('factures.pdf', compact('facture'));
-
-        // Nom du fichier
-        $filename = 'facture_' . $facture->numero_facture . '.pdf';
-        $path = 'factures/' . $filename;
-
-        // Sauvegarder dans le disque public
-        Storage::disk('public')->put($path, $pdf->output());
-
-        return $path;
-    }
+   
 }
