@@ -8,5 +8,5 @@ return [
     'allowed_headers'          => ['*'],
     'exposed_headers'          => [],
     'max_age'                  => 0,
-    'supports_credentials'     => false, // ← false si vous utilisez les tokens Bearer
+    'supports_credentials'     => false,
 ];

@@ -12,10 +12,13 @@ class Commande extends Model
         'boutique_id',  
         'noteCommande', 'statut', 'email', 'nom_client', 'prenom_client',
         'telephone_client', 'adresse_client', 'pays', 'ville_zone',
-        'code_postal', 'region', 'methode_paiement', 'is_guest',
+        'code_postal', 'region', 'methode_paiement', 'is_guest', 'produits',
     ];
 
-    protected $casts = ['is_guest' => 'boolean'];
+    protected $casts = [
+        'is_guest' => 'boolean',
+        'produits' => 'array',
+    ];
 
     public function user()     { return $this->belongsTo(User::class); }
     public function panier()   { return $this->belongsTo(Panier::class); }
