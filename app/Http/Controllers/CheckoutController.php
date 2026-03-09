@@ -31,7 +31,7 @@ public function process(Request $request)
             'telephone'      => 'required|string|max:20',
             'pays'           => 'required|string|max:100',
             'adresse'        => 'required|string|max:500',
-            'cart_data'      => 'required|string',
+            'cart_data'      => 'nullable|string',
             'payment_method' => 'nullable|string',
         ]);
 
@@ -46,9 +46,36 @@ public function process(Request $request)
             ]);
         }
 
-        $cartItems = json_decode($request->cart_data, true);
-        if (empty($cartItems)) {
-            return response()->json(['message' => 'Le panier est vide.'], 400);
+        // ── Récupération du panier ───────────────────────────────
+        if (Auth::check()) {
+            // Utilisateur connecté → charger depuis la table paniers
+            $paniers = Panier::where('user_id', Auth::id())
+                ->where('statut', 'actif')
+                ->with('produit')
+                ->get();
+
+            if ($paniers->isEmpty()) {
+                return response()->json(['message' => 'Le panier est vide.'], 400);
+            }
+
+            $cartItems = $paniers->map(function ($panier) {
+                return [
+                    'id'       => $panier->produit_id,
+                    'name'     => $panier->produit->nom ?? 'Produit',
+                    'quantity' => $panier->quantite,
+                    'price'    => $panier->prixPanier,
+                    'image'    => $panier->produit->image ?? null,
+                    'category' => $panier->produit->categorie ?? 'Bio',
+                    'type'     => $panier->produit->type ?? 'gamme',
+                ];
+            })->toArray();
+
+        } else {
+            // Guest → fallback sur le JSON du frontend
+            $cartItems = json_decode($request->cart_data, true);
+            if (empty($cartItems)) {
+                return response()->json(['message' => 'Le panier est vide.'], 400);
+            }
         }
 
         $createAccount = $request->boolean('create_account');
@@ -116,6 +143,19 @@ public function process(Request $request)
             }
         }
 
+        // ── Insérer le panier en BDD pour les guests ─────────
+        if (!Auth::check()) {
+            foreach ($cartItems as $item) {
+                Panier::create([
+                    'user_id'    => $user->id,
+                    'produit_id' => $item['id'],
+                    'quantite'   => $item['quantity'],
+                    'prixPanier' => $item['price'],
+                    'statut'     => 'commande',
+                ]);
+            }
+        }
+
         // ── Calcul du total ──────────────────────────────────
         $fraisLivraison = intval($request->shipping_cost ?? 0);
         $sousTotal      = collect($cartItems)->sum(fn($i) => $i['price'] * $i['quantity']);
@@ -160,7 +200,7 @@ public function process(Request $request)
 
         // ── Créer la commande ────────────────────────────────
         $commande = Commande::create([
-            'numeroCommande'   => 'BIOSEN-' . time() . '-' . strtoupper(Str::random(4)),
+            'numeroCommande' => 'BIOSEN-' . str_pad(Commande::max('id') + 1, 3, '0', STR_PAD_LEFT),
             'montantTotal'     => $total,
             'user_id'          => $user->id,
             'noteCommande'     => $request->notes,
@@ -215,8 +255,13 @@ public function process(Request $request)
 
         // ── Vider le panier ──────────────────────────────────
         if (Auth::check()) {
-            // Connecté → vider en base de données
-            Panier::where('user_id', Auth::id())->delete();
+            // Connecté → mettre les quantités à 0 et statut à "commande"
+            Panier::where('user_id', Auth::id())
+                ->where('statut', 'actif')
+                ->update([
+                    'quantite' => 0,
+                    'statut'   => 'commande',
+                ]);
         } else {
             // Guest → vider le panier en session
             session()->forget('cart');
