@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Paydunya\Paydunya;
+use Paydunya\Checkout\CheckoutInvoice;
+use Paydunya\Checkout\Store;
 
 class CheckoutController extends Controller
 {
@@ -652,5 +655,362 @@ class CheckoutController extends Controller
     </div>
 </body>
 </html>';
+    }
+
+    // CheckoutController.php - Ajoute cette méthode
+
+    public function initCheckout(Request $request)
+    {
+        try {
+            // Valider les données (comme avant)
+            $request->validate([
+                'nom' => 'required|string|max:255',
+                'prenom' => 'required|string|max:255',
+                'telephone' => 'required|string|max:20',
+                'pays' => 'required|string|max:100',
+                'adresse' => 'required|string|max:500',
+                'cart_data' => 'required|string',
+            ]);
+
+            // Validation selon le pays
+            if ($request->pays === 'Senegal') {
+                $request->validate(['zone_livraison' => 'required|string']);
+            } else {
+                $request->validate([
+                    'code_postal' => 'required|string|max:20',
+                    'ville' => 'required|string|max:255',
+                    'region' => 'required|string|max:255',
+                ]);
+            }
+
+            $cartItems = json_decode($request->cart_data, true);
+            $fraisLivraison = intval($request->shipping_cost ?? 0);
+            $total = collect($cartItems)->sum(fn($i) => $i['price'] * $i['quantity']) + $fraisLivraison;
+
+            // Générer un token temporaire
+            $paymentToken = Str::random(32);
+
+            // Stocker les données temporairement (dans la session ou cache)
+            // Utilisons la session pour plus de simplicité
+            session(['payment_' . $paymentToken => [
+                'data' => $request->all(),
+                'cart' => $cartItems,
+                'total' => $total,
+                'frais_livraison' => $fraisLivraison,
+                'expires_at' => now()->addHours(1)->timestamp
+            ]]);
+
+            // Initialiser le paiement PayDunya
+            $paydunyaResponse = $this->preparePaydunyaPayment([
+                'total' => $total,
+                'items' => $cartItems,
+                'frais_livraison' => $fraisLivraison,
+                'client' => [
+                    'nom' => $request->nom,
+                    'prenom' => $request->prenom,
+                    'email' => $request->email ?? '',
+                    'telephone' => $request->telephone,
+                    'adresse' => $request->adresse
+                ],
+                'payment_token' => $paymentToken
+            ]);
+
+            return response()->json($paydunyaResponse);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur init checkout: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'initialisation du paiement'
+            ], 500);
+        }
+    }
+
+    // CheckoutController.php - REMPLACE ces méthodes
+
+    private function configurePaydunya()
+    {
+        $mode = config('paydunya.mode', 'test');
+        $config = config("paydunya.{$mode}");
+
+        try {
+            // Vérifier quelle classe utiliser
+            if (class_exists('\Paydunya\Setup')) {
+                // Nouvelle version du SDK
+                \Paydunya\Setup::setMasterKey($config['master_key'] ?? '');
+                \Paydunya\Setup::setPublicKey($config['public_key'] ?? '');
+                \Paydunya\Setup::setPrivateKey($config['private_key'] ?? '');
+                \Paydunya\Setup::setToken($config['token'] ?? '');
+                \Paydunya\Setup::setMode($mode == 'live' ? 'live' : 'test');
+                Log::info('✅ PayDunya configuré avec Setup');
+            } else {
+                // Ancienne version du SDK
+                \Paydunya\Paydunya::setMasterKey($config['master_key'] ?? '');
+                \Paydunya\Paydunya::setPublicKey($config['public_key'] ?? '');
+                \Paydunya\Paydunya::setPrivateKey($config['private_key'] ?? '');
+                \Paydunya\Paydunya::setMode($mode == 'live' ? 'live' : 'test');
+                Log::info('✅ PayDunya configuré avec Paydunya');
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur configuration PayDunya: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    private function configureStore()
+    {
+        $store = config('paydunya.store');
+
+        try {
+            // Vérifier quelle classe Store utiliser
+            if (class_exists('\Paydunya\Checkout\Store')) {
+                \Paydunya\Checkout\Store::setName($store['name']);
+                \Paydunya\Checkout\Store::setTagline($store['tagline']);
+                \Paydunya\Checkout\Store::setPhoneNumber($store['phone_number']);
+                \Paydunya\Checkout\Store::setPostalAddress($store['address']);
+                \Paydunya\Checkout\Store::setWebsiteUrl($store['website_url']);
+                \Paydunya\Checkout\Store::setLogoUrl($store['logo_url']);
+                Log::info('✅ Store configuré avec Checkout\Store');
+            } else {
+                // Ancienne version
+                \Paydunya\Checkout\Store::setName($store['name']);
+                \Paydunya\Checkout\Store::setTagline($store['tagline']);
+                \Paydunya\Checkout\Store::setPhoneNumber($store['phone_number']);
+                \Paydunya\Checkout\Store::setPostalAddress($store['address']);
+                \Paydunya\Checkout\Store::setWebsiteUrl($store['website_url']);
+                \Paydunya\Checkout\Store::setLogoUrl($store['logo_url']);
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur configuration Store: ' . $e->getMessage());
+        }
+    }
+
+    private function preparePaydunyaPayment($data)
+    {
+        try {
+            // Configuration
+            $this->configurePaydunya();
+            $this->configureStore();
+
+            // Création de la facture - Vérifier la classe disponible
+            if (class_exists('\Paydunya\Checkout\CheckoutInvoice')) {
+                $invoice = new \Paydunya\Checkout\CheckoutInvoice();
+            } else {
+                $invoice = new \Paydunya\Checkout\Invoice();
+            }
+
+            // Ajout des produits
+            foreach ($data['items'] as $item) {
+                $invoice->addItem(
+                    $item['name'] ?? $item['nom'],
+                    $item['quantity'],
+                    $item['price'],
+                    $item['price'] * $item['quantity']
+                );
+            }
+
+            // Frais de livraison
+            if ($data['frais_livraison'] > 0) {
+                $invoice->addItem(
+                    'Frais de livraison',
+                    1,
+                    $data['frais_livraison'],
+                    $data['frais_livraison']
+                );
+            }
+
+            $invoice->setTotalAmount($data['total']);
+            $invoice->setDescription("Paiement commande BioSen100");
+
+            // ✅ NE PAS UTILISER setCustomerInfo - utiliser addCustomData à la place
+            $invoice->addCustomData('client_nom', $data['client']['prenom'] . ' ' . $data['client']['nom']);
+            $invoice->addCustomData('client_telephone', $data['client']['telephone']);
+            $invoice->addCustomData('client_email', $data['client']['email']);
+            $invoice->addCustomData('client_adresse', $data['client']['adresse']);
+            $invoice->addCustomData('payment_token', $data['payment_token']);
+
+            // URLs de retour
+            $frontendUrl = config('paydunya.store.website_url', 'http://localhost:4200');
+            $invoice->setCancelUrl($frontendUrl . "/checkout/cancel");
+            $invoice->setReturnUrl($frontendUrl . "/checkout/success?token={$data['payment_token']}");
+
+            // Création de la facture
+            if ($invoice->create()) {
+                Log::info('✅ Facture PayDunya créée', ['token' => $invoice->token]);
+                return [
+                    'success' => true,
+                    'payment_url' => $invoice->getInvoiceUrl(),
+                    'token' => $invoice->token,
+                    'payment_token' => $data['payment_token']
+                ];
+            } else {
+                $errorMsg = $invoice->response_text ?? 'Erreur inconnue';
+                Log::error('❌ Erreur PayDunya: ' . $errorMsg);
+                return [
+                    'success' => false,
+                    'message' => 'Erreur paiement: ' . $errorMsg
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Exception PayDunya: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erreur de paiement: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    public function confirmPaymentAndCreateOrder(Request $request)
+    {
+        try {
+            $paymentToken = $request->input('payment_token');
+
+            // Récupérer les données temporaires de la session
+            $pendingData = session('payment_' . $paymentToken);
+
+            if (!$pendingData) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Session de paiement expirée ou invalide'
+                ], 400);
+            }
+
+            // Vérifier que le token n'a pas expiré
+            if ($pendingData['expires_at'] < now()->timestamp) {
+                session()->forget('payment_' . $paymentToken);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La session de paiement a expiré'
+                ], 400);
+            }
+
+            DB::beginTransaction();
+
+            $data = $pendingData['data'];
+            $cartItems = $pendingData['cart'];
+            $total = $pendingData['total'];
+            $fraisLivraison = $pendingData['frais_livraison'];
+
+            // Gestion utilisateur (connecté ou guest)
+            $user = null;
+            $createAccount = filter_var($data['create_account'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $emailToCheck = $data['email'] ?? $this->generateTemporaryEmail($data['telephone']);
+
+            if (Auth::check()) {
+                $user = Auth::user();
+            } else {
+                $existingUser = User::where('email', $emailToCheck)->first();
+
+                if ($existingUser) {
+                    $user = $existingUser;
+                } else {
+                    $roleClient = Role::where('name', 'Client')->firstOrFail();
+                    $userData = [
+                        'nom' => $data['nom'],
+                        'prenom' => $data['prenom'],
+                        'email' => $emailToCheck,
+                        'telephone' => $data['telephone'],
+                        'adresse' => $data['adresse'],
+                        'role_id' => $roleClient->id,
+                        'password' => Hash::make($createAccount && !empty($data['password'])
+                            ? $data['password']
+                            : Str::random(20)),
+                    ];
+                    $user = User::create($userData);
+                }
+            }
+
+            // Adresse complète
+            $adresseComplete = $data['adresse'];
+            if ($data['pays'] !== 'Senegal' && !empty($data['ville'])) {
+                $adresseComplete .= ', ' . $data['code_postal'] . ' ' . $data['ville'] . ', ' . $data['region'];
+            }
+
+            // Zone livraison
+            $zoneLivraison = $data['zone_livraison'] ?? '';
+
+            // Formater les produits
+            $produitsFormates = [];
+            foreach ($cartItems as $item) {
+                $type = 'gamme';
+                if (isset($item['category']) && $item['category'] === 'Sport') {
+                    $type = 'sport';
+                }
+
+                $produitsFormates[] = [
+                    'id' => $item['id'],
+                    'nom' => $item['name'] ?? $item['nom'],
+                    'quantite' => $item['quantity'],
+                    'prix_unitaire' => $item['price'],
+                    'total' => $item['price'] * $item['quantity'],
+                    'type' => $type,
+                    'categorie' => $item['category'] ?? 'Bio',
+                    'image' => $item['image'] ?? null,
+                ];
+            }
+
+            // Créer la commande
+            $commande = Commande::create([
+                'numeroCommande' => 'BIOSEN-' . time() . '-' . strtoupper(Str::random(4)),
+                'montantTotal' => $total,
+                'user_id' => $user->id,
+                'noteCommande' => $data['notes'] ?? null,
+                'statut' => 'payee', // 👈 Statut directement "payée"
+                'email' => $data['email'] ?? $user->email,
+                'nom_client' => $data['nom'],
+                'prenom_client' => $data['prenom'],
+                'telephone_client' => $data['telephone'],
+                'adresse_client' => $adresseComplete,
+                'pays' => $data['pays'],
+                'ville_zone' => $zoneLivraison,
+                'code_postal' => $data['code_postal'] ?? null,
+                'region' => $data['region'] ?? null,
+                'methode_paiement' => 'paydunya',
+                'is_guest' => !Auth::check(),
+                'produits' => json_encode($produitsFormates),
+            ]);
+
+            // Créer la livraison
+            $livraison = Livraison::create([
+                'zone' => $zoneLivraison,
+                'statut' => 'en_attente',
+                'telephone' => $data['telephone'],
+                'frais' => $fraisLivraison,
+                'commande_id' => $commande->id,
+                'user_id' => $user->id,
+                'pays' => $data['pays'],
+                'adresse' => $adresseComplete,
+                'nom_client' => $data['nom'],
+                'prenom_client' => $data['prenom'],
+            ]);
+
+            // Nettoyer la session
+            session()->forget('payment_' . $paymentToken);
+
+            DB::commit();
+
+            Log::info('Commande créée après paiement', [
+                'order_number' => $commande->numeroCommande,
+                'user_id' => $user->id,
+                'total' => $total,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande créée avec succès',
+                'order_number' => $commande->numeroCommande,
+                'commande_id' => $commande->id,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur création commande après paiement: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de la commande'
+            ], 500);
+        }
     }
 }
