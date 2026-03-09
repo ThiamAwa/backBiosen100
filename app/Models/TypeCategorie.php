@@ -12,4 +12,9 @@ class TypeCategorie extends Model
 
     public function categories() { return $this->hasMany(Categorie::class); }
     public function gammes()     { return $this->hasMany(Gamme::class); }
+
+    public function produitMedias()
+{
+    return $this->hasMany(ProduitMedia::class, 'type_categorie_id');
+}
 }
