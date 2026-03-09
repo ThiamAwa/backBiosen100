@@ -91,7 +91,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
         Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
-        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
+        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']);
         Route::apiResource('clients', ClientController::class);
 
         // Personnel — fix AVANT apiResource

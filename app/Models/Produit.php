@@ -9,12 +9,16 @@ class Produit extends Model
     use HasFactory;
     protected $fillable = [
         'image', 'video', 'nom', 'description', 'prix', 'stock',
-        'prixPromo', 'modeUtilisation', 'enPromotion', 'noteProduit', 'categorie_id',
+        'prixPromo', 'modeUtilisation', 'enPromotion', 'noteProduit', 'categorie_id','type_categorie_id'
     ];
 
     protected $casts = ['enPromotion' => 'boolean'];
 
     public function categorie()  { return $this->belongsTo(Categorie::class); }
+    public function typeCategorie()
+    {
+        return $this->belongsTo(TypeCategorie::class);
+    }
     public function paniers()    { return $this->hasMany(Panier::class); }
     public function avis()       { return $this->hasMany(Avis::class); }
     public function gammes()

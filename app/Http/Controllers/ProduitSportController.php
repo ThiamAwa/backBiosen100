@@ -22,13 +22,10 @@ class ProduitSportController extends Controller
     public function index()
     {
         try {
-            $typeSport    = $this->getTypeSport();
-            $categorieIds = Categorie::where('type_categorie_id', $typeSport->id)->pluck('id');
-            $produits     = Produit::with(['categorie', 'avis', 'medias'])
-                ->whereIn('categorie_id', $categorieIds)
+            $produits = Produit::with(['categorie', 'avis', 'medias', 'typeCategorie'])
                 ->paginate(10);
-            $categories   = Categorie::where('type_categorie_id', $typeSport->id)->get();
-            return response()->json(compact('produits', 'categories'));
+            $typeCategories = TypeCategorie::all();
+            return response()->json(compact('produits', 'typeCategories'));
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
@@ -49,7 +46,7 @@ class ProduitSportController extends Controller
                 'prix'            => 'required|numeric|min:0',
                 'prixPromo'       => 'nullable|numeric|min:0',
                 'stock'           => 'required|integer|min:0',
-                'categorie_id'    => 'nullable|exists:categories,id',
+                'categorie_id' => 'nullable|exists:categories,id',
                 'images'          => 'nullable|array|max:10',
                 'images.*'        => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
                 'videos_urls'     => 'nullable|array|max:5',
@@ -118,7 +115,7 @@ class ProduitSportController extends Controller
                 'prix'                 => 'required|numeric|min:0',
                 'prixPromo'            => 'nullable|numeric|min:0',
                 'stock'                => 'required|integer|min:0',
-                'categorie_id'         => 'nullable|exists:categories,id',
+                'categorie_id' => 'nullable|exists:categories,id',
                 'medias_a_supprimer'   => 'nullable|array',
                 'medias_a_supprimer.*' => 'integer|exists:produit_medias,id',
                 'media_principal_id'   => 'nullable|integer|exists:produit_medias,id',
