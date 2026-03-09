@@ -10,7 +10,7 @@ class ProduitMedia extends Model
     protected $table = 'produit_medias';
     protected $fillable = [
         'produit_id', 'type', 'chemin', 'url_externe',
-        'titre', 'ordre', 'est_principal',
+        'titre', 'ordre', 'est_principal','type_categorie_id',
     ];
     protected $casts = [
         'est_principal' => 'boolean',
@@ -53,7 +53,12 @@ class ProduitMedia extends Model
     public function isVideo(): bool { return $this->type === 'video_url'; }
 
     public function typeCategorie()
-{
-    return $this->belongsTo(TypeCategorie::class);
-}
+    {
+        return $this->belongsTo(TypeCategorie::class);
+    }
+
+    public function scopeOfTypeCategorie($query, $typeCategorieId)
+    {
+        return $query->where('type_categorie_id', $typeCategorieId);
+    }
 }

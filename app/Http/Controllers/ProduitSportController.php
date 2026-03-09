@@ -14,67 +14,62 @@ use Illuminate\Support\Facades\DB;
 
 class ProduitSportController extends Controller
 {
-    private function getTypeSport(): TypeCategorie
-    {
-        return TypeCategorie::where('nom', 'Sport')->firstOrFail();
-    }
-
     public function index()
     {
         try {
-            $typeSport    = $this->getTypeSport();
-            $categorieIds = Categorie::where('type_categorie_id', $typeSport->id)->pluck('id');
-            $produits     = Produit::with(['categorie', 'avis', 'medias'])
-                ->whereIn('categorie_id', $categorieIds)
-                ->paginate(10);
-            $categories   = Categorie::where('type_categorie_id', $typeSport->id)->get();
-            return response()->json(compact('produits', 'categories'));
+            $produits = Produit::with([
+                'avis',
+                'medias.typeCategorie'
+            ])->paginate(10);
+
+            $typeCategories = TypeCategorie::all();
+            return response()->json(compact('produits', 'typeCategories'));
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
-    }
-
-    public function show($id)
-    {
-        $produit = Produit::with(['categorie', 'medias', 'avis.user'])->findOrFail($id);
-        return response()->json($produit);
     }
 
     public function store(Request $request)
     {
         try {
             $validated = $request->validate([
-                'nom'             => 'required|string|max:255',
-                'description'     => 'nullable|string',
-                'prix'            => 'required|numeric|min:0',
-                'prixPromo'       => 'nullable|numeric|min:0',
-                'stock'           => 'required|integer|min:0',
-                'categorie_id'    => 'nullable|exists:categories,id',
-                'images'          => 'nullable|array|max:10',
-                'images.*'        => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-                'videos_urls'     => 'nullable|array|max:5',
-                'videos_urls.*'   => 'nullable|url|max:500',
-                'videos_titres'   => 'nullable|array',
-                'videos_titres.*' => 'nullable|string|max:255',
+                'nom'               => 'required|string|max:255',
+                'description'       => 'nullable|string',
+                'prix'              => 'required|numeric|min:0',
+                'prixPromo'         => 'nullable|numeric|min:0',
+                'stock'             => 'required|integer|min:0',
+                'type_categorie_id' => 'nullable|exists:type_categories,id', // ← WAS: categorie_id
+                'images'            => 'nullable|array|max:10',
+                'images.*'          => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+                'videos_urls'       => 'nullable|array|max:5',
+                'videos_urls.*'     => 'nullable|url|max:500',
+                'videos_titres'     => 'nullable|array',
+                'videos_titres.*'   => 'nullable|string|max:255',
             ]);
 
+            // Extraire type_categorie_id AVANT de créer le produit
+            $typeCategorieId = $validated['type_categorie_id'] ?? null;
+            unset($validated['type_categorie_id']); // ← ne pas mettre sur la table produits
+
             $validated['enPromotion'] = $request->boolean('enPromotion');
+
             DB::beginTransaction();
 
             $produit = Produit::create($validated);
-            $ordre   = 0;
+            $ordre = 0;
 
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $imageFile) {
                     if (!$imageFile->isValid()) continue;
-                    $chemin       = $imageFile->store('produits_sport', 'public');
+                    $chemin = $imageFile->store('produits_sport', 'public');
                     $estPrincipal = ($ordre === 0);
                     ProduitMedia::create([
-                        'produit_id'    => $produit->id,
-                        'type'          => 'image',
-                        'chemin'        => $chemin,
-                        'ordre'         => $ordre,
-                        'est_principal' => $estPrincipal,
+                        'produit_id'        => $produit->id,
+                        'type'              => 'image',
+                        'chemin'            => $chemin,
+                        'ordre'             => $ordre,
+                        'est_principal'     => $estPrincipal,
+                        'type_categorie_id' => $typeCategorieId, // ← injecté ici
                     ]);
                     if ($estPrincipal) $produit->update(['image' => 'storage/' . $chemin]);
                     $ordre++;
@@ -85,19 +80,20 @@ class ProduitSportController extends Controller
                 foreach ($request->input('videos_urls') as $i => $url) {
                     if (empty(trim($url))) continue;
                     ProduitMedia::create([
-                        'produit_id'  => $produit->id,
-                        'type'        => 'video_url',
-                        'url_externe' => trim($url),
-                        'titre'       => $request->input("videos_titres.$i"),
-                        'ordre'       => $ordre,
-                        'est_principal' => false,
+                        'produit_id'        => $produit->id,
+                        'type'              => 'video_url',
+                        'url_externe'       => trim($url),
+                        'titre'             => $request->input("videos_titres.$i"),
+                        'ordre'             => $ordre,
+                        'est_principal'     => false,
+                        'type_categorie_id' => $typeCategorieId, // ← injecté ici aussi
                     ]);
                     $ordre++;
                 }
             }
 
             DB::commit();
-            return response()->json($produit->load('medias'), 201);
+            return response()->json($produit->load('medias.typeCategorie'), 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
@@ -118,7 +114,7 @@ class ProduitSportController extends Controller
                 'prix'                 => 'required|numeric|min:0',
                 'prixPromo'            => 'nullable|numeric|min:0',
                 'stock'                => 'required|integer|min:0',
-                'categorie_id'         => 'nullable|exists:categories,id',
+                'type_categorie_id'    => 'nullable|exists:type_categories,id', // ← corrigé
                 'medias_a_supprimer'   => 'nullable|array',
                 'medias_a_supprimer.*' => 'integer|exists:produit_medias,id',
                 'media_principal_id'   => 'nullable|integer|exists:produit_medias,id',
@@ -130,8 +126,17 @@ class ProduitSportController extends Controller
                 'videos_titres.*'      => 'nullable|string|max:255',
             ]);
 
+            $typeCategorieId = $request->input('type_categorie_id'); // ← récupérer
             $validated['enPromotion'] = $request->boolean('enPromotion');
+            unset($validated['type_categorie_id']); // ← ne pas sauvegarder sur produits
+
             DB::beginTransaction();
+
+            // Mettre à jour type_categorie_id sur tous les médias existants
+            if ($typeCategorieId !== null) {
+                ProduitMedia::where('produit_id', $produit->id)
+                    ->update(['type_categorie_id' => $typeCategorieId]); // ← mettre à jour
+            }
 
             // Supprimer médias cochés
             if (!empty($validated['medias_a_supprimer'])) {
@@ -150,11 +155,12 @@ class ProduitSportController extends Controller
                 foreach ($request->file('images') as $imageFile) {
                     if (!$imageFile->isValid()) continue;
                     ProduitMedia::create([
-                        'produit_id'    => $produit->id,
-                        'type'          => 'image',
-                        'chemin'        => $imageFile->store('produits_sport', 'public'),
-                        'ordre'         => $ordre++,
-                        'est_principal' => false,
+                        'produit_id'        => $produit->id,
+                        'type'              => 'image',
+                        'chemin'            => $imageFile->store('produits_sport', 'public'),
+                        'ordre'             => $ordre++,
+                        'est_principal'     => false,
+                        'type_categorie_id' => $typeCategorieId, // ← sauvegarder
                     ]);
                 }
             }
@@ -163,12 +169,13 @@ class ProduitSportController extends Controller
                 foreach ($request->input('videos_urls') as $i => $url) {
                     if (empty(trim($url))) continue;
                     ProduitMedia::create([
-                        'produit_id'    => $produit->id,
-                        'type'          => 'video_url',
-                        'url_externe'   => trim($url),
-                        'titre'         => $request->input("videos_titres.$i"),
-                        'ordre'         => $ordre++,
-                        'est_principal' => false,
+                        'produit_id'        => $produit->id,
+                        'type'              => 'video_url',
+                        'url_externe'       => trim($url),
+                        'titre'             => $request->input("videos_titres.$i"),
+                        'ordre'             => $ordre++,
+                        'est_principal'     => false,
+                        'type_categorie_id' => $typeCategorieId, // ← sauvegarder
                     ]);
                 }
             }
@@ -178,7 +185,6 @@ class ProduitSportController extends Controller
                 ProduitMedia::where('id', $validated['media_principal_id'])->update(['est_principal' => true]);
             }
 
-            // Assurer qu'il y a toujours un principal
             if (!ProduitMedia::where('produit_id', $produit->id)->where('est_principal', true)->exists()) {
                 optional(ProduitMedia::where('produit_id', $produit->id)->where('type', 'image')->orderBy('ordre')->first())->update(['est_principal' => true]);
             }
@@ -189,7 +195,7 @@ class ProduitSportController extends Controller
             $produit->update($validated);
             DB::commit();
 
-            return response()->json($produit->load('medias'));
+            return response()->json($produit->load('medias.typeCategorie'));
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
@@ -198,6 +204,15 @@ class ProduitSportController extends Controller
             DB::rollBack();
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+    private function getTypeSport(): TypeCategorie
+    {
+        return TypeCategorie::where('nom', 'Sport')->firstOrFail();
+    }
+    public function show($id)
+    {
+        $produit = Produit::with(['categorie', 'medias', 'avis.user'])->findOrFail($id);
+        return response()->json($produit);
     }
 
     public function destroy($id)

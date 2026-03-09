@@ -34,6 +34,17 @@ class AccueilController extends Controller
             $categories = Categorie::with('typeCategorie')->orderBy('nom')->get();
             $typeCategories = TypeCategorie::with('categories')->orderBy('nom')->get();
 
+            $produitsSport = Produit::with(['medias', 'categorie'])
+                ->where('stock', '>', 0)
+                ->whereHas('medias', function($q) {
+                    $q->whereHas('typeCategorie', function($q2) {
+                        $q2->whereRaw('LOWER(nom) LIKE ?', ['%sport%']);
+                    });
+                })
+                ->orderBy('created_at', 'desc')
+                ->take(8)
+                ->get();
+
             $vendeurs = collect([]);
             $roleVendeur = Role::where('name', 'Vendeur')->first();
             if ($roleVendeur) {
@@ -52,7 +63,8 @@ class AccueilController extends Controller
 
             return response()->json(compact(
                 'produits', 'produitsPromo', 'gammes',
-                'categories', 'typeCategories', 'vendeurs', 'stats'
+                'categories', 'typeCategories', 'vendeurs',
+                'stats', 'produitsSport' // ← AJOUTER ICI
             ));
 
         } catch (\Exception $e) {
