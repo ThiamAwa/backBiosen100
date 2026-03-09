@@ -20,6 +20,8 @@ use App\Http\Controllers\LivreurController;
 use App\Http\Controllers\VendeurController;
 use App\Http\Controllers\TemoignageController;
 use App\Http\Controllers\SmsController;
+use App\Http\Controllers\FactureController;
+
 // ─── Auth ─────────────────────────────────────────────────────
 Route::post('/login',   [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
@@ -77,6 +79,9 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         Route::apiResource('gammes',         GammeController::class);
         Route::apiResource('produits',       ProduitController::class);
         Route::apiResource('produits-sport', ProduitSportController::class);
+        Route::get('produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
+        Route::apiResource('factures', FactureController::class);
+        // Route::get('factures/{facture}/download', [FactureController::class, 'download'])->name('factures.download');
 
         // Commandes — fixes AVANT apiResource
         Route::get('/commandes/export/csv', [CommandeController::class, 'export']);
@@ -86,16 +91,17 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
         Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
-        Route::apiResource('clients', ClientController::class)->except(['create', 'edit']);
+        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
+        Route::apiResource('clients', ClientController::class);
 
         // Personnel — fix AVANT apiResource
         Route::patch('/vendeurs/{id}/change-role', [VendeurController::class, 'changeRole']);
-        Route::apiResource('livreurs',  LivreurController::class)->except(['show', 'create', 'edit']);
-        Route::apiResource('vendeurs',  VendeurController::class)->except(['show', 'create', 'edit']);
-        Route::apiResource('boutiques', BoutiqueController::class)->except(['show', 'create', 'edit']);
+        Route::apiResource('livreurs',  LivreurController::class);
+        Route::apiResource('vendeurs',  VendeurController::class);
+        Route::apiResource('boutiques', BoutiqueController::class);
 
         // Témoignages
-        Route::apiResource('temoignages', TemoignageController::class)->except(['show', 'create', 'edit']);
+        Route::apiResource('temoignages', TemoignageController::class);
 //    });
 
 });

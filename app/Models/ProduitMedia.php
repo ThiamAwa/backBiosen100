@@ -51,4 +51,9 @@ class ProduitMedia extends Model
 
     public function isImage(): bool { return $this->type === 'image'; }
     public function isVideo(): bool { return $this->type === 'video_url'; }
+
+    public function typeCategorie()
+{
+    return $this->belongsTo(TypeCategorie::class);
+}
 }

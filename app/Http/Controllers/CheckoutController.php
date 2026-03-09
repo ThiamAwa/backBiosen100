@@ -6,6 +6,7 @@ use App\Models\Livraison;
 use App\Models\Panier;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Facture;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,222 +21,251 @@ use Paydunya\Checkout\Store;
 
 class CheckoutController extends Controller
 {
-    // ══════════════════════════════════════════════════════════
-    // PROCESS CHECKOUT
-    // ══════════════════════════════════════════════════════════
-    public function process(Request $request)
-    {
-        try {
+    
+// ══════════════════════════════════════════════════════════
+// PROCESS CHECKOUT
+// ══════════════════════════════════════════════════════════
+public function process(Request $request)
+{
+    try {
+        $request->validate([
+            'nom'            => 'required|string|max:255',
+            'prenom'         => 'required|string|max:255',
+            'telephone'      => 'required|string|max:20',
+            'pays'           => 'required|string|max:100',
+            'adresse'        => 'required|string|max:500',
+            'cart_data'      => 'required|string',
+            'payment_method' => 'nullable|string',
+        ]);
+
+        // Validation selon le pays
+        if ($request->pays === 'Senegal') {
+            $request->validate(['zone_livraison' => 'required|string']);
+        } else {
             $request->validate([
-                'nom'            => 'required|string|max:255',
-                'prenom'         => 'required|string|max:255',
-                'telephone'      => 'required|string|max:20',
-                'pays'           => 'required|string|max:100',
-                'adresse'        => 'required|string|max:500',
-                'cart_data'      => 'required|string',
-                'payment_method' => 'nullable|string',
+                'code_postal' => 'required|string|max:20',
+                'ville'       => 'required|string|max:255',
+                'region'      => 'required|string|max:255',
+            ]);
+        }
+
+        $cartItems = json_decode($request->cart_data, true);
+        if (empty($cartItems)) {
+            return response()->json(['message' => 'Le panier est vide.'], 400);
+        }
+
+        $createAccount = $request->boolean('create_account');
+
+        // Validation création de compte
+        if ($createAccount) {
+            $request->validate([
+                'email'    => 'required|email|unique:users,email',
+                'password' => 'required|min:8',
+            ]);
+        } elseif ($request->filled('email')) {
+            $request->validate(['email' => 'nullable|email']);
+        }
+
+        DB::beginTransaction();
+
+        $user         = null;
+        $nomClient    = $request->nom;
+        $prenomClient = $request->prenom;
+
+        $roleClient = Role::where('name', 'Client')->firstOrFail();
+
+        // ── CAS 1 : Utilisateur connecté ────────────────────
+        if (Auth::check()) {
+            $user         = Auth::user();
+            $nomClient    = $user->nom;
+            $prenomClient = $user->prenom;
+            $user->update([
+                'telephone' => $request->telephone,
+                'adresse'   => $request->adresse,
             ]);
 
-            // Validation selon le pays
-            if ($request->pays === 'Senegal') {
-                $request->validate(['zone_livraison' => 'required|string']);
-            } else {
-                $request->validate([
-                    'code_postal' => 'required|string|max:20',
-                    'ville'       => 'required|string|max:255',
-                    'region'      => 'required|string|max:255',
-                ]);
-            }
+        // ── CAS 2 & 3 : Guest ───────────────────────────────
+        } else {
+            $emailToCheck = $request->filled('email')
+                ? $request->email
+                : $this->generateTemporaryEmail($request->telephone);
 
-            $cartItems = json_decode($request->cart_data, true);
-            if (empty($cartItems)) {
-                return response()->json(['message' => 'Le panier est vide.'], 400);
-            }
+            $existingUser = User::where('email', $emailToCheck)->first();
 
-            $createAccount = $request->boolean('create_account');
-
-            // Validation création de compte
-            if ($createAccount) {
-                $request->validate([
-                    'email'    => 'required|email|unique:users,email',
-                    'password' => 'required|min:8',
-                ]);
-            } elseif ($request->filled('email')) {
-                $request->validate(['email' => 'nullable|email']);
-            }
-
-            DB::beginTransaction();
-
-            $user         = null;
-            $nomClient    = $request->nom;
-            $prenomClient = $request->prenom;
-
-            $roleClient = Role::where('name', 'Client')->firstOrFail();
-
-            // ── CAS 1 : Utilisateur connecté ────────────────────
-            if (Auth::check()) {
-                $user = Auth::user();
-                $nomClient    = $user->nom;
-                $prenomClient = $user->prenom;
+            if ($existingUser) {
+                $user = $existingUser;
                 $user->update([
+                    'nom'       => $request->nom,
+                    'prenom'    => $request->prenom,
                     'telephone' => $request->telephone,
                     'adresse'   => $request->adresse,
                 ]);
-
-                // ── CAS 2 & 3 : Guest ───────────────────────────────
+                if ($createAccount && $request->password) {
+                    $user->update(['password' => Hash::make($request->password)]);
+                }
             } else {
-                $emailToCheck = $request->filled('email')
-                    ? $request->email
-                    : $this->generateTemporaryEmail($request->telephone);
-
-                $existingUser = User::where('email', $emailToCheck)->first();
-
-                if ($existingUser) {
-                    $user = $existingUser;
-                    $user->update([
-                        'nom'       => $request->nom,
-                        'prenom'    => $request->prenom,
-                        'telephone' => $request->telephone,
-                        'adresse'   => $request->adresse,
-                    ]);
-                    if ($createAccount && $request->password) {
-                        $user->update(['password' => Hash::make($request->password)]);
-                    }
-                } else {
-                    $userData = [
-                        'nom'       => $request->nom,
-                        'prenom'    => $request->prenom,
-                        'email'     => $emailToCheck,
-                        'telephone' => $request->telephone,
-                        'adresse'   => $request->adresse,
-                        'role_id'   => $roleClient->id,
-                        'password'  => Hash::make($createAccount && $request->password
-                            ? $request->password
-                            : Str::random(20)),
-                    ];
-                    $user = User::create($userData);
-                }
-            }
-
-            // ── Calcul du total ──────────────────────────────────
-            $fraisLivraison = intval($request->shipping_cost ?? 0);
-            $total = collect($cartItems)->sum(fn($i) => $i['price'] * $i['quantity']);
-            $total += $fraisLivraison;
-
-            // ── Adresse complète ─────────────────────────────────
-            $adresseComplete = $request->adresse;
-            if ($request->pays !== 'Senegal' && $request->filled('ville')) {
-                $adresseComplete .= ', ' . $request->code_postal . ' ' . $request->ville . ', ' . $request->region;
-            }
-
-            // ── Zone livraison ───────────────────────────────────
-            $zoneLivraison = '';
-            if ($request->pays === 'Senegal' && $request->zone_livraison) {
-                $parts = explode('|', $request->zone_livraison);
-                $zoneLivraison  = $request->zone_livraison;
-                $fraisLivraison = isset($parts[2]) ? intval($parts[2]) : $fraisLivraison;
-            }
-            // ── Formater les produits pour stockage ───────────────────
-            $produitsFormates = [];
-
-            foreach ($cartItems as $item) {
-                // Déterminer le type (sport ou gamme)
-                $type = 'gamme'; // par défaut
-                if (isset($item['category']) && $item['category'] === 'Sport') {
-                    $type = 'sport';
-                } elseif (isset($item['type']) && $item['type'] === 'sport') {
-                    $type = 'sport';
-                }
-
-                $produitsFormates[] = [
-                    'id' => $item['id'],
-                    'nom' => $item['name'] ?? $item['nom'],
-                    'quantite' => $item['quantity'],
-                    'prix_unitaire' => $item['price'],
-                    'total' => $item['price'] * $item['quantity'],
-                    'type' => $type,
-                    'categorie' => $item['category'] ?? 'Bio',
-                    'image' => $item['image'] ?? null,
+                $userData = [
+                    'nom'       => $request->nom,
+                    'prenom'    => $request->prenom,
+                    'email'     => $emailToCheck,
+                    'telephone' => $request->telephone,
+                    'adresse'   => $request->adresse,
+                    'role_id'   => $roleClient->id,
+                    'password'  => Hash::make($createAccount && $request->password
+                        ? $request->password
+                        : Str::random(20)),
                 ];
+                $user = User::create($userData);
             }
-            $produitsJson = json_encode($produitsFormates);
-            // ── Créer la commande ────────────────────────────────
-            $commande = Commande::create([
-                'numeroCommande'   => 'BIOSEN-' . time() . '-' . strtoupper(Str::random(4)),
-                'montantTotal'     => $total,
-                'user_id'          => $user->id,
-                'noteCommande'     => $request->notes,
-                'statut'           => 'en_attente',
-                'email'            => $request->email ?? $user->email,
-                'nom_client'       => $nomClient,
-                'prenom_client'    => $prenomClient,
+        }
+
+        // ── Calcul du total ──────────────────────────────────
+        $fraisLivraison = intval($request->shipping_cost ?? 0);
+        $sousTotal      = collect($cartItems)->sum(fn($i) => $i['price'] * $i['quantity']);
+        $total          = $sousTotal + $fraisLivraison;
+
+        // ── Adresse complète ─────────────────────────────────
+        $adresseComplete = $request->adresse;
+        if ($request->pays !== 'Senegal' && $request->filled('ville')) {
+            $adresseComplete .= ', ' . $request->code_postal . ' ' . $request->ville . ', ' . $request->region;
+        }
+
+        // ── Zone livraison ───────────────────────────────────
+        $zoneLivraison = '';
+        if ($request->pays === 'Senegal' && $request->zone_livraison) {
+            $parts          = explode('|', $request->zone_livraison);
+            $zoneLivraison  = $request->zone_livraison;
+            $fraisLivraison = isset($parts[2]) ? intval($parts[2]) : $fraisLivraison;
+        }
+
+        // ── Formater les produits pour stockage ──────────────
+        $produitsFormates = [];
+        foreach ($cartItems as $item) {
+            $type = 'gamme';
+            if (isset($item['category']) && $item['category'] === 'Sport') {
+                $type = 'sport';
+            } elseif (isset($item['type']) && $item['type'] === 'sport') {
+                $type = 'sport';
+            }
+
+            $produitsFormates[] = [
+                'id'            => $item['id'],
+                'nom'           => $item['name'] ?? $item['nom'],
+                'quantite'      => $item['quantity'],
+                'prix_unitaire' => $item['price'],
+                'total'         => $item['price'] * $item['quantity'],
+                'type'          => $type,
+                'categorie'     => $item['category'] ?? 'Bio',
+                'image'         => $item['image'] ?? null,
+            ];
+        }
+        $produitsJson = json_encode($produitsFormates);
+
+        // ── Créer la commande ────────────────────────────────
+        $commande = Commande::create([
+            'numeroCommande'   => 'BIOSEN-' . time() . '-' . strtoupper(Str::random(4)),
+            'montantTotal'     => $total,
+            'user_id'          => $user->id,
+            'noteCommande'     => $request->notes,
+            'statut'           => 'en_attente',
+            'email'            => $request->email ?? $user->email,
+            'nom_client'       => $nomClient,
+            'prenom_client'    => $prenomClient,
+            'telephone_client' => $request->telephone,
+            'adresse_client'   => $adresseComplete,
+            'pays'             => $request->pays,
+            'ville_zone'       => $zoneLivraison ?: ($request->ville ?? ''),
+            'code_postal'      => $request->code_postal,
+            'region'           => $request->region,
+            'methode_paiement' => $request->payment_method,
+            'is_guest'         => !Auth::check(),
+            'produits'         => $produitsJson,
+        ]);
+
+        // ── Créer la livraison ───────────────────────────────
+        $livraison = Livraison::create([
+            'zone'          => $zoneLivraison ?: ($request->ville ?? ''),
+            'statut'        => 'en_attente',
+            'telephone'     => $request->telephone,
+            'frais'         => $fraisLivraison,
+            'commande_id'   => $commande->id,
+            'user_id'       => $user->id,
+            'pays'          => $request->pays,
+            'adresse'       => $adresseComplete,
+            'nom_client'    => $nomClient,
+            'prenom_client' => $prenomClient,
+        ]);
+
+        // ── Créer la facture ─────────────────────────────────
+        $facture = Facture::create([
+            'commande_id'     => $commande->id,
+            'numero_facture'  => 'FAC-' . date('Ymd') . '-' . strtoupper(Str::random(6)),
+            'date_emission'   => now(),
+            'date_echeance'   => now()->addDays(30),
+            'statut_paiement' => 'en_attente',
+            'metadonnees'     => [
+                'produits'         => $produitsFormates,
+                'sous_total'       => $sousTotal,
+                'frais_livraison'  => $fraisLivraison,
+                'total'            => $total,
+                'methode_paiement' => $request->payment_method,
+                'nom_client'       => $nomClient . ' ' . $prenomClient,
                 'telephone_client' => $request->telephone,
                 'adresse_client'   => $adresseComplete,
                 'pays'             => $request->pays,
-                'ville_zone'       => $zoneLivraison ?: ($request->ville ?? ''),
-                'code_postal'      => $request->code_postal,
-                'region'           => $request->region,
-                'methode_paiement' => $request->payment_method,
-                'is_guest'         => !Auth::check(),
-                'produits'         => $produitsJson,
-            ]);
-            // ── Créer la livraison ───────────────────────────────
-            $livraison = Livraison::create([
-                'zone'          => $zoneLivraison ?: ($request->ville ?? ''),
-                'statut'        => 'en_attente',
-                'telephone'     => $request->telephone,
-                'frais'         => $fraisLivraison,
-                'commande_id'   => $commande->id,
-                'user_id'       => $user->id,
-                'pays'          => $request->pays,
-                'adresse'       => $adresseComplete,
-                'nom_client'    => $nomClient,
-                'prenom_client' => $prenomClient,
-            ]);
+            ],
+        ]);
 
-            // ── Vider panier si connecté ─────────────────────────
-            if (Auth::check()) {
-                Panier::where('user_id', Auth::id())->delete();
-            }
-            // ── Après la création de la commande, stocker dans la session pour les invités ──
-            if (!Auth::check()) {
-                // Récupérer la liste des commandes invitées
-                $guestOrders = session('guest_orders', []);
-                $guestOrders[] = $commande->numeroCommande;
-                session(['guest_orders' => $guestOrders]);
-            }
-
-            // ── Token si nouveau compte ──────────────────────────
-            $token = null;
-            if ($createAccount && !Auth::check()) {
-                $token = auth('api')->login($user);
-            }
-
-            DB::commit();
-
-            Log::info('Commande créée', [
-                'order_number' => $commande->numeroCommande,
-                'user_id'      => $user->id,
-                'total'        => $total,
-            ]);
-
-            return response()->json([
-                'message'      => 'Commande créée avec succès.',
-                'order_number' => $commande->numeroCommande,
-                'commande_id'  => $commande->id,
-                'token'        => $token, // null si déjà connecté
-                'whatsapp_message' => $this->generateWhatsAppMessage($commande, $livraison, $cartItems),
-            ], 201);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json(['errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Checkout error: ' . $e->getMessage());
-            return response()->json(['message' => $e->getMessage()], 500);
+        // ── Vider le panier ──────────────────────────────────
+        if (Auth::check()) {
+            // Connecté → vider en base de données
+            Panier::where('user_id', Auth::id())->delete();
+        } else {
+            // Guest → vider le panier en session
+            session()->forget('cart');
         }
+
+        // ── Stocker la commande guest en session ─────────────
+        if (!Auth::check()) {
+            $guestOrders   = session('guest_orders', []);
+            $guestOrders[] = $commande->numeroCommande;
+            session(['guest_orders' => $guestOrders]);
+        }
+
+        // ── Token si nouveau compte ──────────────────────────
+        $token = null;
+        if ($createAccount && !Auth::check()) {
+            $token = auth('api')->login($user);
+        }
+
+        DB::commit();
+
+        Log::info('Commande créée', [
+            'order_number'   => $commande->numeroCommande,
+            'numero_facture' => $facture->numero_facture,
+            'user_id'        => $user->id,
+            'total'          => $total,
+        ]);
+
+        return response()->json([
+            'message'          => 'Commande créée avec succès.',
+            'order_number'     => $commande->numeroCommande,
+            'commande_id'      => $commande->id,
+            'facture_id'       => $facture->id,
+            'numero_facture'   => $facture->numero_facture,
+            'token'            => $token,
+            'whatsapp_message' => $this->generateWhatsAppMessage($commande, $livraison, $cartItems),
+        ], 201);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        DB::rollBack();
+        return response()->json(['errors' => $e->errors()], 422);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Checkout error: ' . $e->getMessage());
+        return response()->json(['message' => $e->getMessage()], 500);
     }
+}
 
     // ══════════════════════════════════════════════════════════
     // CONFIRMATION

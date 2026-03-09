@@ -44,4 +44,9 @@ class Boutique extends Model
             ->whereHas('role', fn($q) => $q->whereIn('name', ['Vendeur', 'Commercial', 'Responsable Commercial']))
             ->count();
     }
+
+    public function commandes()
+    {
+        return $this->hasMany(Commande::class);
+    }
 }
