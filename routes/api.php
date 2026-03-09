@@ -78,6 +78,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         Route::apiResource('gammes',         GammeController::class);
         Route::apiResource('produits',       ProduitController::class);
         Route::apiResource('produits-sport', ProduitSportController::class);
+        Route::get('produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
         Route::apiResource('factures', FactureController::class);
         // Route::get('factures/{facture}/download', [FactureController::class, 'download'])->name('factures.download');
 
@@ -88,9 +89,9 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
 
         // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
-Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
-Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
-Route::apiResource('clients', ClientController::class);
+        Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
+        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
+        Route::apiResource('clients', ClientController::class);
 
         // Personnel — fix AVANT apiResource
         Route::patch('/vendeurs/{id}/change-role', [VendeurController::class, 'changeRole']);
