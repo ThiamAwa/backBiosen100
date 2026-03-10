@@ -35,7 +35,7 @@ Route::get('/accueil/gamme/{id}',     [AccueilController::class, 'filterByGamme'
 Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
 
-Route::apiResource('typecategories', TypeCategorieController::class);
+//Route::apiResource('typecategories', TypeCategorieController::class);
 Route::apiResource('categories',     CategorieController::class);
 Route::apiResource('gammes',         GammeController::class);
 Route::apiResource('produits',       ProduitController::class);
@@ -91,7 +91,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         // Clients — fixes AVANT apiResource
         Route::patch('/clients/{client}/verify-email', [ClientController::class, 'verifyEmail']);
         Route::get('/clients/{client}/stats',          [ClientController::class, 'stats']);
-        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']); 
+        Route::patch('/clients/{client}/statut',       [ClientController::class, 'toggleStatut']);
         Route::apiResource('clients', ClientController::class);
 
         // Personnel — fix AVANT apiResource
