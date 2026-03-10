@@ -36,12 +36,12 @@ Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
 
 //Route::apiResource('typecategories', TypeCategorieController::class);
-Route::apiResource('categories',     CategorieController::class);
-Route::apiResource('gammes',         GammeController::class);
-Route::apiResource('produits',       ProduitController::class);
-Route::apiResource('produits-sport', ProduitSportController::class);
+//Route::apiResource('categories',     CategorieController::class);
+//Route::apiResource('gammes',         GammeController::class);
+//Route::apiResource('produits',       ProduitController::class);
+//Route::apiResource('produits-sport', ProduitSportController::class);
 Route::get('/produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
-Route::apiResource('boutiques', BoutiqueController::class);
+//Route::apiResource('boutiques', BoutiqueController::class);
 
 // ─── Checkout public (guests + connectés) ─────────────────────
 Route::post('/checkout',                           [CheckoutController::class, 'process']);
@@ -69,7 +69,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
     Route::get('/sms/balance', [SmsController::class, 'getSmsBalance']);
 
     // ─── Admin ────────────────────────────────────────────────
-    Route::prefix('admin')->group(function () {
+//    Route::prefix('admin')->group(function () {
 
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
 
@@ -104,7 +104,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         Route::apiResource('temoignages', TemoignageController::class);
 //    });
 
-});
+//});
 //////////////////////////  TEST AVEC PAYDUNYA ///////////////////////////////////////////////////////////////////////////////////
 Route::get('/test-paydunya-config', function() {
     return [
