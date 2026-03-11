@@ -9,7 +9,7 @@ class Produit extends Model
     use HasFactory;
     protected $fillable = [
         'image', 'video', 'nom', 'description', 'prix', 'stock',
-        'prixPromo', 'modeUtilisation', 'enPromotion', 'noteProduit', 'categorie_id',
+        'prixPromo', 'modeUtilisation', 'enPromotion', 'noteProduit', 'categorie_id'
     ];
 
     protected $casts = ['enPromotion' => 'boolean'];
@@ -22,10 +22,17 @@ class Produit extends Model
         return $this->belongsToMany(Gamme::class, 'gamme_produit')->withTimestamps();
     }
 
-    // Médias
-    public function medias()
+   
+    public function typeCategorieViaMedias()
     {
-        return $this->hasMany(ProduitMedia::class)->orderBy('ordre');
+        return $this->hasOneThrough(
+            TypeCategorie::class,
+            ProduitMedia::class,
+            'produit_id', // Foreign key on produit_medias table
+            'id',          // Foreign key on type_categories table
+            'id',          // Local key on produits table
+            'type_categorie_id' // Local key on produit_medias table
+        );
     }
     public function images()
     {
