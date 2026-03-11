@@ -35,6 +35,8 @@ Route::get('/accueil/type-categorie/{nom}', [AccueilController::class, 'filterBy
 
 Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
+Route::get('/temoignages-public', [TemoignageController::class, 'showPublic']);
+
 
 //Route::apiResource('typecategories', TypeCategorieController::class);
 //Route::apiResource('categories',     CategorieController::class);
