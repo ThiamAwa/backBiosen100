@@ -22,11 +22,7 @@ class Produit extends Model
         return $this->belongsToMany(Gamme::class, 'gamme_produit')->withTimestamps();
     }
 
-    // Médias
-    public function medias()
-    {
-        return $this->hasMany(ProduitMedia::class)->orderBy('ordre');
-    }
+   
     public function typeCategorieViaMedias()
     {
         return $this->hasOneThrough(

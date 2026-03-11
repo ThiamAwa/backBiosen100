@@ -13,15 +13,20 @@ return new class extends Migration
     {
         Schema::create('produit_medias', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('produit_id')
-                ->constrained('produits')
-                ->onDelete('cascade');
-            $table->enum('type', ['image', 'video_url'])->default('image');
-            $table->string('chemin')->nullable();
-            $table->string('url_externe')->nullable();
-            $table->string('titre')->nullable();
+            $table->json('image')->nullable();
+            $table->string('video')->nullable();
+            $table->string('nom');
+            $table->text('description')->nullable();
+            $table->decimal('prix', 10, 2);
+            $table->integer('stock')->default(0);
+            $table->decimal('prixPromo', 10, 2)->nullable();
+            $table->boolean('enPromotion')->default(false);
+            $table->decimal('noteProduit', 3, 1)->nullable();
             $table->integer('ordre')->default(0);
-            $table->boolean('est_principal')->default(false);
+            $table->foreignId('type_categorie_id')
+            ->nullable()
+            ->constrained('type_categories')
+            ->onDelete('set null');
             $table->timestamps();
         });
     }
