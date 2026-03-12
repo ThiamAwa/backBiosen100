@@ -31,9 +31,12 @@ Route::get('/accueil',                [AccueilController::class, 'index']);
 Route::get('/accueil/search',         [AccueilController::class, 'search']);
 Route::get('/accueil/categorie/{id}', [AccueilController::class, 'filterByCategorie']);
 Route::get('/accueil/gamme/{id}',     [AccueilController::class, 'filterByGamme']);
+Route::get('/accueil/type-categorie/{nom}', [AccueilController::class, 'filterByTypeCategorie']);
 
 Route::get('/sport',       [SportController::class, 'index']);
 Route::get('/temoignages', [TemoignageController::class, 'showPublic']);
+Route::get('/temoignages-public', [TemoignageController::class, 'showPublic']);
+
 
 //Route::apiResource('typecategories', TypeCategorieController::class);
 //Route::apiResource('categories',     CategorieController::class);
@@ -80,6 +83,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
         Route::apiResource('produits',       ProduitController::class);
         Route::apiResource('produits-sport', ProduitSportController::class);
         Route::get('produits-sport/{id}/medias', [ProduitSportController::class, 'getMedias']);
+        Route::get('/produits-sport/type-categorie/{nom}', [ProduitSportController::class, 'filterByTypeCategorie']);
         Route::apiResource('factures', FactureController::class);
         // Route::get('factures/{facture}/download', [FactureController::class, 'download'])->name('factures.download');
 

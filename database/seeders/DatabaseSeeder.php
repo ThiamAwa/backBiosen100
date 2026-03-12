@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             ClientSeeder::class,  
             CommandesTableSeeder::class,
             FactureSeeder::class,
+            ProduitSportSeeder::class,
         ]);
 
         // Réactiver les contraintes FK
