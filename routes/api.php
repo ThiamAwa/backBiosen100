@@ -109,15 +109,3 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
 //    });
 
 //});
-//////////////////////////  TEST AVEC PAYDUNYA ///////////////////////////////////////////////////////////////////////////////////
-Route::get('/test-paydunya-config', function() {
-    return [
-        'mode' => config('paydunya.mode'),
-        'public_key' => substr(config('paydunya.test.public_key'), 0, 10) . '...',
-        'private_key' => substr(config('paydunya.test.private_key'), 0, 10) . '...',
-        'store_name' => config('paydunya.store.name'),
-    ];
-});
-Route::post('/paydunya/init/{commandeId}', [PaydunyaController::class, 'initPayment']);
-Route::post('/checkout/init', [CheckoutController::class, 'initCheckout']);
-Route::post('/checkout/confirm-payment', [CheckoutController::class, 'confirmPaymentAndCreateOrder']);
