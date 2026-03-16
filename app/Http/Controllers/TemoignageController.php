@@ -43,9 +43,6 @@ class TemoignageController extends Controller
                 'afficher'    => 'boolean',
             ]);
 
-            if (empty($validated['user_id']) && empty($validated['nom_client'])) {
-                return response()->json(['message' => 'user_id ou nom_client requis.'], 422);
-            }
 
             $validated['afficher'] = $request->boolean('afficher', true);
 
@@ -80,10 +77,6 @@ class TemoignageController extends Controller
                 'afficher'        => 'boolean',
                 'supprimer_images'=> 'boolean',
             ]);
-
-            if (empty($validated['user_id']) && empty($validated['nom_client'])) {
-                return response()->json(['message' => 'user_id ou nom_client requis.'], 422);
-            }
 
             $validated['afficher'] = $request->boolean('afficher');
 
