@@ -60,27 +60,25 @@ class VendeurController extends Controller
         return response()->json($vendeur->load(['role', 'boutique']), 201);
     }
 
-    public function update(Request $request, $id)
-    {
-        $vendeur   = User::findOrFail($id);
-        $validated = $request->validate([
-            'nom'        => 'required|string|max:255',
-            'prenom'     => 'nullable|string|max:255',
-            'email'      => 'required|email|unique:users,email,' . $id,
-            'telephone'  => 'required|string|max:20',
-            'adresse'    => 'required|string|max:255',
-          
-            'role_id'    => 'required|exists:roles,id',
-            'boutique_id'=> 'nullable|exists:boutiques,id',
-        ]);
+   public function update(Request $request, $id)
+{
+    $vendeur   = User::findOrFail($id);
+    $validated = $request->validate([
+        'nom'        => 'required|string|max:255',
+        'prenom'     => 'nullable|string|max:255',
+        'email'      => 'required|email|unique:users,email,' . $id,
+        'telephone'  => 'required|string|max:20',
+        'adresse'    => 'required|string|max:255',
+        'role_id'    => 'required|exists:roles,id',
+        'boutique_id'=> 'nullable|exists:boutiques,id',
+    ]);
 
-        $role = $this->getRolesCommerciaux()->find($validated['role_id']);
-        if (!$role) return response()->json(['message' => 'Rôle commercial invalide.'], 422);
+    $role = $this->getRolesCommerciaux()->find($validated['role_id']);
+    if (!$role) return response()->json(['message' => 'Rôle commercial invalide.'], 422);
 
-      
-
-        $vendeur->update($data);
-        return response()->json($vendeur->load(['role', 'boutique']));
+    // ✅ $data n'existait pas — remplacé par $validated directement
+    $vendeur->update($validated);
+    return response()->json($vendeur->load(['role', 'boutique']));
     }
 
     public function changeRole(Request $request, $id)
