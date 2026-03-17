@@ -21,6 +21,7 @@ use App\Http\Controllers\VendeurController;
 use App\Http\Controllers\TemoignageController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\FactureController;
+use App\Http\Controllers\UserController;
 
 // ─── Auth ─────────────────────────────────────────────────────
 Route::post('/login',   [AuthController::class, 'login']);
@@ -55,6 +56,15 @@ Route::get('/checkout/whatsapp/{orderNumber}',     [CheckoutController::class, '
 Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generatePDF']);
 // ─── Authentifié avec JWT ─────────────────────────────────────
 //Route::middleware('auth:api')->group(function () {
+
+    Route::get('/user/profile', [UserController::class, 'profile']);
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
+    Route::post('/user/change-password', [UserController::class, 'changePassword']);
+    Route::post('/user/avatar', [UserController::class, 'uploadAvatar']);
+    Route::delete('/user/avatar', [UserController::class, 'deleteAvatar']);
+    Route::get('/user/orders', [UserController::class, 'orders']);
+    Route::get('/user/orders/{orderId}', [UserController::class, 'orderDetails']);
+    Route::delete('/user/account', [UserController::class, 'deleteAccount']);
 
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -106,6 +116,8 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
 
         // Témoignages
         Route::apiResource('temoignages', TemoignageController::class);
+
+
 //    });
 
 //});
