@@ -96,62 +96,58 @@ class CheckoutController extends Controller
             $roleClient   = Role::where('name', 'Client')->firstOrFail();
 
             // ── CAS 1 : Utilisateur connecté ─────────────────────
+            // ══════════════════════════════════════════════════════════
+            // GESTION UTILISATEUR
+            // ══════════════════════════════════════════════════════════
             if (Auth::check()) {
-                $user         = Auth::user();
-                $nomClient    = $user->nom;
+                // ── CAS 1 : Utilisateur connecté ─────────────────────
+                $user = Auth::user();
+                $nomClient = $user->nom;
                 $prenomClient = $user->prenom;
+                
                 $user->update([
                     'telephone' => $request->telephone,
                     'adresse'   => $request->adresse,
                 ]);
-
-                // ── CAS 2 & 3 : Guest ────────────────────────────────
+                
             } else {
-                $emailToCheck = $request->filled('email')
-                    ? $request->email
-                    : $this->generateTemporaryEmail($request->telephone);
-
-                $existingUser = User::where('email', $emailToCheck)->first();
-
-                if ($existingUser) {
-                    $user = $existingUser;
-                    $user->update([
-                        'nom'       => $request->nom,
-                        'prenom'    => $request->prenom,
-                        'telephone' => $request->telephone,
-                        'adresse'   => $request->adresse,
+                // ── CAS 2 : Guest (non connecté) ────────────────────
+                $createAccount = $request->boolean('create_account');
+                
+                if ($createAccount && $request->filled('email') && $request->filled('password')) {
+                    // ── SOUS-CAS 2A : Création de compte volontaire ──
+                    $request->validate([
+                        'email'    => 'required|email|unique:users,email',
+                        'password' => 'required|min:8',
                     ]);
-                    if ($createAccount && $request->password) {
-                        $user->update(['password' => Hash::make($request->password)]);
-                    }
-                } else {
+                    
                     $user = User::create([
                         'nom'       => $request->nom,
                         'prenom'    => $request->prenom,
-                        'email'     => $emailToCheck,
+                        'email'     => $request->email,
                         'telephone' => $request->telephone,
                         'adresse'   => $request->adresse,
                         'role_id'   => $roleClient->id,
-                        'password'  => Hash::make($createAccount && $request->password
-                            ? $request->password
-                            : Str::random(20)),
+                        'password'  => Hash::make($request->password),
+                    ]);
+                    
+                    // Générer un token pour connexion automatique
+                    $token = auth('api')->login($user);
+                    
+                } else {
+                    // ── SOUS-CAS 2B : Simple commande sans compte ───
+                    // AUCUN email, AUCUN mot de passe (tout est NULL)
+                    $user = User::create([
+                        'nom'       => $request->nom,
+                        'prenom'    => $request->prenom,
+                        'email'     => null,        
+                        'telephone' => $request->telephone,
+                        'adresse'   => $request->adresse,
+                        'role_id'   => $roleClient->id,
+                        'password'  => null,        
                     ]);
                 }
             }
-
-            // ══════════════════════════════════════════════════════
-            // ⚠️  SUPPRESSION DU BLOC "Insérer panier pour les guests"
-            //
-            //  Raison : la table `paniers` a une contrainte FK vers
-            //  `produits` (produits Bio uniquement). Le panier d'un
-            //  guest peut contenir des produits Sport qui sont dans
-            //  `produits_sports` → violation de clé étrangère.
-            //
-            //  Solution : les données du panier sont déjà stockées
-            //  dans `commandes.produits` (colonne JSON). C'est
-            //  suffisant pour la confirmation et la facture PDF.
-            // ══════════════════════════════════════════════════════
-
             // ── Calcul du total ───────────────────────────────────
             $fraisLivraison = intval($request->shipping_cost ?? 0);
             $sousTotal      = collect($cartItems)->sum(fn($i) => $i['price'] * $i['quantity']);
