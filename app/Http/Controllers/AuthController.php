@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
+use App\Models\Role;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
@@ -92,5 +94,62 @@ class AuthController extends Controller
         } catch (JWTException $e) {
             return response()->json(['message' => 'Token expiré.'], 401);
         }
+    }
+
+
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nom'       => 'required|string|max:255',
+            'prenom'    => 'required|string|max:255',
+            'email'     => 'required|email|unique:users,email',
+            'telephone' => 'required|string|max:20',
+            'password'  => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'statut' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Récupérer automatiquement le rôle "Client"
+        $roleClient = Role::where('name', 'Client')->first();
+
+        if (!$roleClient) {
+            return response()->json([
+                'statut'  => false,
+                'message' => 'Rôle Client introuvable. Contactez un administrateur.'
+            ], 500);
+        }
+
+        $user = User::create([
+            'nom'       => $request->nom,
+            'prenom'    => $request->prenom,
+            'email'     => $request->email,
+            'telephone' => $request->telephone,
+            'password'  => Hash::make($request->password),
+            'role_id'   => $roleClient->id,
+            'statut'    => 'actif',
+        ]);
+
+        // Générer le token JWT directement
+        $token = JWTAuth::fromUser($user);
+        $user->load('role');
+
+        return response()->json([
+            'statut'  => true,
+            'message' => 'Compte créé avec succès.',
+            'token'   => $token,
+            'user'    => [
+                'id'        => $user->id,
+                'nom'       => $user->nom,
+                'prenom'    => $user->prenom,
+                'email'     => $user->email,
+                'telephone' => $user->telephone,
+                'role'      => $user->role?->name,
+            ],
+        ], 201);
     }
 }
