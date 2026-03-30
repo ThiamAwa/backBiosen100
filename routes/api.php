@@ -68,6 +68,7 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
 
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/register', [AuthController::class, 'register']);
     Route::get('/me',      [AuthController::class, 'me']);
     // Panier — fixes AVANT {id}
     Route::get('/panier/count',   [PanierController::class, 'count']);
