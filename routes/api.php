@@ -86,6 +86,8 @@ Route::get('/checkout/pdf/{orderNumber}', [CheckoutController::class, 'generateP
 //    Route::prefix('admin')->group(function () {
 
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
+       
+        Route::get('//ventes-journalieres', [AdminController::class, 'getVentesJournalieres']);
 
         // Catalogue
         Route::apiResource('typecategories', TypeCategorieController::class);
